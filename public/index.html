@@ -185,6 +185,7 @@
             max-width: 100%;
             max-height: 500px;
             display: none;
+            border-radius: 10px;
         }
         
         .placeholder-text {
@@ -243,6 +244,26 @@
             display: none;
         }
         
+        .success {
+            color: #51cf66;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(81, 207, 102, 0.1);
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .download-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #51cf66;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: none;
+        }
+        
         @media (max-width: 600px) {
             .settings {
                 grid-template-columns: 1fr;
@@ -281,6 +302,8 @@
                         <option value="fantasy-art">Fantasy Art</option>
                         <option value="anime">Anime</option>
                         <option value="3d-render">3D Render</option>
+                        <option value="oil painting">Oil Painting</option>
+                        <option value="watercolor">Watercolor</option>
                     </select>
                 </div>
                 
@@ -321,6 +344,7 @@
             </div>
             
             <div class="error" id="errorMessage"></div>
+            <div class="success" id="successMessage"></div>
         </div>
         
         <div class="card result">
@@ -336,6 +360,7 @@
                 </div>
                 <img id="generatedImage" alt="Generated image will appear here">
             </div>
+            <button class="download-btn" id="downloadBtn">Download Image</button>
         </div>
     </div>
 
@@ -352,41 +377,40 @@
             const apiStatus = document.getElementById('apiStatus');
             const fallbackCount = document.getElementById('fallbackCount');
             const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            const downloadBtn = document.getElementById('downloadBtn');
             
-            // API configuration
-            const apis = [
-                {
-                    name: 'AI Horde',
-                    id: 'horde',
-                    fallback: true,
-                    working: true
-                },
-                {
-                    name: 'ClipDrop',
-                    id: 'clipdrop',
-                    fallback: true,
-                    working: true
-                },
-                {
-                    name: 'Stability AI',
-                    id: 'stability',
-                    fallback: true,
-                    working: true
+            let currentImageUrl = '';
+            
+            // Download functionality
+            downloadBtn.addEventListener('click', function() {
+                if (currentImageUrl) {
+                    const link = document.createElement('a');
+                    link.href = currentImageUrl;
+                    link.download = `ai-generated-${Date.now()}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                 }
-            ];
-            
-            // Update fallback count display
-            function updateFallbackCount() {
-                const workingApis = apis.filter(api => api.working).length;
-                fallbackCount.textContent = `${workingApis} available`;
-            }
+            });
             
             // Show error message
             function showError(message) {
                 errorMessage.textContent = message;
                 errorMessage.style.display = 'block';
+                successMessage.style.display = 'none';
                 setTimeout(() => {
                     errorMessage.style.display = 'none';
+                }, 8000);
+            }
+            
+            // Show success message
+            function showSuccess(message) {
+                successMessage.textContent = message;
+                successMessage.style.display = 'block';
+                errorMessage.style.display = 'none';
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
                 }, 5000);
             }
             
@@ -413,8 +437,10 @@
                 placeholder.style.display = 'none';
                 loading.style.display = 'flex';
                 generatedImage.style.display = 'none';
+                downloadBtn.style.display = 'none';
                 generateBtn.disabled = true;
                 errorMessage.style.display = 'none';
+                successMessage.style.display = 'none';
                 
                 try {
                     setApiStatus('Sending request to server...', selectedApiId);
@@ -432,22 +458,19 @@
                         })
                     });
                     
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-                    }
-                    
                     const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                    }
                     
                     if (data.success) {
                         if (data.imageUrl) {
                             // Direct image URL
-                            generatedImage.src = data.imageUrl;
-                            generatedImage.style.display = 'block';
-                            loading.style.display = 'none';
-                            setApiStatus('Success');
+                            displayImage(data.imageUrl, data.api);
                         } else if (data.jobId) {
-                            // Job ID for polling
+                            // Job ID for polling (AI Horde)
+                            setApiStatus('Queued in AI Horde...');
                             await pollJobStatus(data.jobId);
                         }
                     } else {
@@ -460,9 +483,30 @@
                     loading.style.display = 'none';
                     placeholder.style.display = 'block';
                     setApiStatus('Failed');
-                } finally {
                     generateBtn.disabled = false;
                 }
+            }
+            
+            // Display generated image
+            function displayImage(imageUrl, apiName) {
+                generatedImage.onload = function() {
+                    loading.style.display = 'none';
+                    generatedImage.style.display = 'block';
+                    downloadBtn.style.display = 'block';
+                    setApiStatus('Success');
+                    showSuccess(`Image generated successfully using ${apiName}!`);
+                    generateBtn.disabled = false;
+                };
+                
+                generatedImage.onerror = function() {
+                    showError('Failed to load generated image');
+                    loading.style.display = 'none';
+                    placeholder.style.display = 'block';
+                    generateBtn.disabled = false;
+                };
+                
+                currentImageUrl = imageUrl;
+                generatedImage.src = imageUrl;
             }
             
             // Poll job status for async APIs
@@ -476,16 +520,14 @@
                         const data = await response.json();
                         
                         if (data.status === 'completed') {
-                            generatedImage.src = data.imageUrl;
-                            generatedImage.style.display = 'block';
-                            loading.style.display = 'none';
-                            setApiStatus('Success');
+                            displayImage(data.imageUrl, 'AI Horde');
                             return;
                         } else if (data.status === 'failed') {
                             throw new Error(data.error || 'Job failed');
                         } else {
                             // Still processing
-                            statusText.textContent = `Processing... ${Math.round((attempts / maxAttempts) * 100)}%`;
+                            const progress = Math.round((attempts / maxAttempts) * 100);
+                            statusText.textContent = `Processing... ${progress}% (Position: ${data.queue_position || 'Unknown'})`;
                             await new Promise(resolve => setTimeout(resolve, 5000));
                             attempts++;
                         }
@@ -494,7 +536,7 @@
                     }
                 }
                 
-                throw new Error('Generation timeout');
+                throw new Error('Generation timeout - Please try again');
             }
             
             // Event listener for generate button
@@ -503,12 +545,13 @@
             // Allow Enter key to trigger generation (but not in textarea)
             promptInput.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
                     generateImage();
                 }
             });
             
             // Initialize
-            updateFallbackCount();
+            fallbackCount.textContent = '3 available';
         });
     </script>
 </body>
