@@ -423,70 +423,91 @@
             }
             
             // Generate image using Vercel API route
-            async function generateImage() {
-                const prompt = promptInput.value.trim();
-                if (!prompt) {
-                    showError('Please enter a description for the image');
-                    return;
-                }
-                
-                // Get selected API
-                const selectedApiId = document.querySelector('input[name="api"]:checked').value;
-                
-                // Show loading state
-                placeholder.style.display = 'none';
-                loading.style.display = 'flex';
-                generatedImage.style.display = 'none';
-                downloadBtn.style.display = 'none';
-                generateBtn.disabled = true;
-                errorMessage.style.display = 'none';
-                successMessage.style.display = 'none';
-                
-                try {
-                    setApiStatus('Sending request to server...', selectedApiId);
-                    
-                    const response = await fetch('/api/generate', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            prompt: prompt,
-                            style: styleSelect.value,
-                            size: sizeSelect.value,
-                            api: selectedApiId
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (!response.ok) {
-                        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-                    }
-                    
-                    if (data.success) {
-                        if (data.imageUrl) {
-                            // Direct image URL
-                            displayImage(data.imageUrl, data.api);
-                        } else if (data.jobId) {
-                            // Job ID for polling (AI Horde)
-                            setApiStatus('Queued in AI Horde...');
-                            await pollJobStatus(data.jobId);
-                        }
-                    } else {
-                        throw new Error(data.error || 'Generation failed');
-                    }
-                    
-                } catch (error) {
-                    console.error('Generation error:', error);
-                    showError(`Generation failed: ${error.message}`);
-                    loading.style.display = 'none';
-                    placeholder.style.display = 'block';
-                    setApiStatus('Failed');
-                    generateBtn.disabled = false;
-                }
+async function generateImage() {
+    const prompt = promptInput.value.trim();
+    if (!prompt) {
+        showError('Please enter a description for the image');
+        return;
+    }
+    
+    // Get selected API
+    const selectedApiId = document.querySelector('input[name="api"]:checked').value;
+    
+    // Show loading state
+    placeholder.style.display = 'none';
+    loading.style.display = 'flex';
+    generatedImage.style.display = 'none';
+    downloadBtn.style.display = 'none';
+    generateBtn.disabled = true;
+    errorMessage.style.display = 'none';
+    successMessage.style.display = 'none';
+    
+    try {
+        setApiStatus('Sending request to server...', selectedApiId);
+        
+        const requestBody = {
+            prompt: prompt,
+            style: styleSelect.value,
+            size: sizeSelect.value,
+            api: selectedApiId
+        };
+
+        console.log('Sending request:', requestBody);
+
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        console.log('Response status:', response.status);
+
+        const data = await response.json();
+        console.log('Response data:', data);
+
+        if (!response.ok) {
+            throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        }
+        
+        if (data.success) {
+            if (data.imageUrl) {
+                // Direct image URL
+                displayImage(data.imageUrl, data.api);
+            } else if (data.jobId) {
+                // Job ID for polling (AI Horde)
+                setApiStatus('Queued in AI Horde...');
+                await pollJobStatus(data.jobId);
+            } else {
+                throw new Error('Invalid response from server');
             }
-            
+        } else {
+            throw new Error(data.error || 'Generation failed');
+        }
+        
+    } catch (error) {
+        console.error('Generation error:', error);
+        let errorMsg = error.message;
+        
+        // Better error messages
+        if (errorMsg.includes('AI Horde API key not configured')) {
+            errorMsg = 'AI Horde API key missing. Please check Vercel environment variables.';
+        } else if (errorMsg.includes('ClipDrop API key not configured')) {
+            errorMsg = 'ClipDrop API key missing. Please check Vercel environment variables.';
+        } else if (errorMsg.includes('Stability AI API key not configured')) {
+            errorMsg = 'Stability AI API key missing. Please check Vercel environment variables.';
+        } else if (errorMsg.includes('Failed to fetch')) {
+            errorMsg = 'Network error. Please check if API route is working.';
+        }
+        
+        showError(`Generation failed: ${errorMsg}`);
+        loading.style.display = 'none';
+        placeholder.style.display = 'block';
+        setApiStatus('Failed');
+        generateBtn.disabled = false;
+    }
+}
             // Display generated image
             function displayImage(imageUrl, apiName) {
                 generatedImage.onload = function() {
