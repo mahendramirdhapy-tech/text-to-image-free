@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Image Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            margin-bottom: 25px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 1rem;
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        textarea::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .settings {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-size: 1rem;
+        }
+        
+        select option {
+            background: #4a4a8a;
+            color: white;
+        }
+        
+        .api-selector {
+            margin-bottom: 20px;
+        }
+        
+        .api-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .api-option {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .api-option input {
+            display: none;
+        }
+        
+        .api-option label {
+            display: block;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .api-option input:checked + label {
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 0 2px white;
+        }
+        
+        button {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: #FF6B6B;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        button:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .result {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .image-container {
+            margin-top: 20px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.2);
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #generatedImage {
+            max-width: 100%;
+            max-height: 500px;
+            display: none;
+        }
+        
+        .placeholder-text {
+            padding: 40px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .loading {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .status {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .api-status {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .fallback-info {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .error {
+            color: #ff6b6b;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 8px;
+            display: none;
+        }
+        
+        @media (max-width: 600px) {
+            .settings {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .api-options {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Image Generator</h1>
+            <p class="subtitle">Turn your imagination into images with multiple AI APIs</p>
+        </header>
+        
+        <div class="card">
+            <div class="input-group">
+                <label for="prompt">Describe the image you want to generate:</label>
+                <textarea id="prompt" placeholder="A majestic lion with a golden mane standing on a mountain peak at sunrise, digital art"></textarea>
+            </div>
+            
+            <div class="settings">
+                <div>
+                    <label for="style">Art Style:</label>
+                    <select id="style">
+                        <option value="realistic">Realistic</option>
+                        <option value="digital-art">Digital Art</option>
+                        <option value="photographic">Photographic</option>
+                        <option value="fantasy-art">Fantasy Art</option>
+                        <option value="anime">Anime</option>
+                        <option value="3d-render">3D Render</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="size">Image Size:</label>
+                    <select id="size">
+                        <option value="512x512">512x512</option>
+                        <option value="768x768">768x768</option>
+                        <option value="1024x1024">1024x1024</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="api-selector">
+                <label>Preferred API:</label>
+                <div class="api-options">
+                    <div class="api-option">
+                        <input type="radio" id="api-horde" name="api" value="horde" checked>
+                        <label for="api-horde">AI Horde</label>
+                    </div>
+                    <div class="api-option">
+                        <input type="radio" id="api-clipdrop" name="api" value="clipdrop">
+                        <label for="api-clipdrop">ClipDrop</label>
+                    </div>
+                    <div class="api-option">
+                        <input type="radio" id="api-stability" name="api" value="stability">
+                        <label for="api-stability">Stability AI</label>
+                    </div>
+                </div>
+                <div class="fallback-info">If the selected API fails, the app will automatically try others</div>
+            </div>
+            
+            <button id="generateBtn">Generate Image</button>
+            
+            <div class="api-status">
+                <span>API Status: <span id="apiStatus">Ready</span></span>
+                <span>Fallbacks: <span id="fallbackCount">3 available</span></span>
+            </div>
+            
+            <div class="error" id="errorMessage"></div>
+        </div>
+        
+        <div class="card result">
+            <h2>Generated Image</h2>
+            <div class="image-container">
+                <div class="placeholder-text" id="placeholder">
+                    Your generated image will appear here
+                </div>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Generating your image...</p>
+                    <p class="status" id="statusText">Initializing AI model</p>
+                </div>
+                <img id="generatedImage" alt="Generated image will appear here">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const generateBtn = document.getElementById('generateBtn');
+            const promptInput = document.getElementById('prompt');
+            const styleSelect = document.getElementById('style');
+            const sizeSelect = document.getElementById('size');
+            const generatedImage = document.getElementById('generatedImage');
+            const placeholder = document.getElementById('placeholder');
+            const loading = document.getElementById('loading');
+            const statusText = document.getElementById('statusText');
+            const apiStatus = document.getElementById('apiStatus');
+            const fallbackCount = document.getElementById('fallbackCount');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            // API configuration
+            const apis = [
+                {
+                    name: 'AI Horde',
+                    id: 'horde',
+                    fallback: true,
+                    working: true
+                },
+                {
+                    name: 'ClipDrop',
+                    id: 'clipdrop',
+                    fallback: true,
+                    working: true
+                },
+                {
+                    name: 'Stability AI',
+                    id: 'stability',
+                    fallback: true,
+                    working: true
+                }
+            ];
+            
+            // Update fallback count display
+            function updateFallbackCount() {
+                const workingApis = apis.filter(api => api.working).length;
+                fallbackCount.textContent = `${workingApis} available`;
+            }
+            
+            // Show error message
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+                setTimeout(() => {
+                    errorMessage.style.display = 'none';
+                }, 5000);
+            }
+            
+            // Set API status
+            function setApiStatus(status, apiName = '') {
+                apiStatus.textContent = status;
+                if (apiName) {
+                    statusText.textContent = `Using ${apiName}`;
+                }
+            }
+            
+            // Generate image using Vercel API route
+            async function generateImage() {
+                const prompt = promptInput.value.trim();
+                if (!prompt) {
+                    showError('Please enter a description for the image');
+                    return;
+                }
+                
+                // Get selected API
+                const selectedApiId = document.querySelector('input[name="api"]:checked').value;
+                
+                // Show loading state
+                placeholder.style.display = 'none';
+                loading.style.display = 'flex';
+                generatedImage.style.display = 'none';
+                generateBtn.disabled = true;
+                errorMessage.style.display = 'none';
+                
+                try {
+                    setApiStatus('Sending request to server...', selectedApiId);
+                    
+                    const response = await fetch('/api/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            prompt: prompt,
+                            style: styleSelect.value,
+                            size: sizeSelect.value,
+                            api: selectedApiId
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        if (data.imageUrl) {
+                            // Direct image URL
+                            generatedImage.src = data.imageUrl;
+                            generatedImage.style.display = 'block';
+                            loading.style.display = 'none';
+                            setApiStatus('Success');
+                        } else if (data.jobId) {
+                            // Job ID for polling
+                            await pollJobStatus(data.jobId);
+                        }
+                    } else {
+                        throw new Error(data.error || 'Generation failed');
+                    }
+                    
+                } catch (error) {
+                    console.error('Generation error:', error);
+                    showError(`Generation failed: ${error.message}`);
+                    loading.style.display = 'none';
+                    placeholder.style.display = 'block';
+                    setApiStatus('Failed');
+                } finally {
+                    generateBtn.disabled = false;
+                }
+            }
+            
+            // Poll job status for async APIs
+            async function pollJobStatus(jobId) {
+                let attempts = 0;
+                const maxAttempts = 60; // 5 minutes max
+                
+                while (attempts < maxAttempts) {
+                    try {
+                        const response = await fetch(`/api/status?jobId=${jobId}`);
+                        const data = await response.json();
+                        
+                        if (data.status === 'completed') {
+                            generatedImage.src = data.imageUrl;
+                            generatedImage.style.display = 'block';
+                            loading.style.display = 'none';
+                            setApiStatus('Success');
+                            return;
+                        } else if (data.status === 'failed') {
+                            throw new Error(data.error || 'Job failed');
+                        } else {
+                            // Still processing
+                            statusText.textContent = `Processing... ${Math.round((attempts / maxAttempts) * 100)}%`;
+                            await new Promise(resolve => setTimeout(resolve, 5000));
+                            attempts++;
+                        }
+                    } catch (error) {
+                        throw new Error(`Job polling failed: ${error.message}`);
+                    }
+                }
+                
+                throw new Error('Generation timeout');
+            }
+            
+            // Event listener for generate button
+            generateBtn.addEventListener('click', generateImage);
+            
+            // Allow Enter key to trigger generation (but not in textarea)
+            promptInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    generateImage();
+                }
+            });
+            
+            // Initialize
+            updateFallbackCount();
+        });
+    </script>
+</body>
+</html>
